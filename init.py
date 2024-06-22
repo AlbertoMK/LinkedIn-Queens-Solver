@@ -24,7 +24,7 @@ def get_color_at_coordinates(image, coordenadas):
                 id_this_color = id
         mapeo[id_cell] = id_this_color
         id_cell += 1
-    return mapeo
+    return mapeo, len(colores.values())
 
 
 def mapeo(image_path, dimension):
@@ -36,7 +36,9 @@ def mapeo(image_path, dimension):
             x = int(width / dimension * (0.5 + j))
             y = int(height / dimension * (0.5 + i))
             coordenadas.append((x, y))
-    map = get_color_at_coordinates(image, coordenadas)
+    map, values = get_color_at_coordinates(image, coordenadas)
+    if values != dimension:
+        raise Exception("Los colores no fueron leídos correctamente, ajusta de nuevo la imagen")
 
     matrix = [[0 for _ in range(dimension)] for _ in range(dimension)]
     for i in range(dimension):
@@ -47,55 +49,76 @@ def mapeo(image_path, dimension):
 
 def backtracking(matrix):
     n = len(matrix)
-    colores = [False for _ in range(n)]
+
+    colores = [[] for _ in range(n)]
+    for i in range(n):
+        for j in range(n):
+            colores[matrix[i][j]].append((i, j))
+    colores.sort(key=len)
+
     rows = [False for _ in range(n)]
     cols = [False for _ in range(n)]
     solution = []
     index = 0
     counter = 0
     while index < n * n and len(solution) < n:
-        counter += backtrack(matrix, index, colores, rows, cols, solution)
+        counter += backtrack(n, index, colores, rows, cols, solution)
         index += 1
     print(counter)
     return solution
 
 
-def backtrack(matrix, cell, colores, rows, cols, solution):
-    n = len(matrix)
-    row, col = divmod(cell, n)
+def backtrack(n, cell, colores, rows, cols, solution):
+    row, col = getRowCol(colores, cell)
     counter = 0
-    if colores[matrix[row][col]] is False and cols[col] is False and rows[row] is False and comprobarAdyacencias(cell, solution, n):
+    if cols[col] is False and rows[row] is False and comprobarAdyacencias(colores, cell, solution, n):
         counter += 1
         # anotar
-        colores[matrix[row][col]] = True
         rows[row] = True
         cols[col] = True
         solution.append(row * n + col)
         # comprobar
         if len(solution) is not n:
-            index = cell - cell % n + n
+            index = getNextIndex(colores, cell)
             while index < n * n and len(solution) < n:
-                counter += backtrack(matrix, index, colores, rows, cols, solution)
+                counter += backtrack(n, index, colores, rows, cols, solution)
                 index += 1
             if len(solution) < n:
                 # desanotar
-                colores[matrix[row][col]] = False
                 rows[row] = False
                 cols[col] = False
                 solution.pop()
     return counter
 
 
-def comprobarAdyacencias(cell, solution, dimension):
+def getNextIndex(colores, cell):
+    contador = 0
+    for color in colores:
+        if contador + len(color) > cell:
+            return contador + len(color)
+        contador += len(color)
+
+
+def getRowCol(colores, cell):
+    contador = 0
+    for color in colores:
+        if contador + len(color) > cell:
+            return color[cell - contador]
+        contador += len(color)
+
+
+def comprobarAdyacencias(colores, cell, solution, dimension):
     posibilidades = []
-    if getRow(cell, dimension) - getRow(cell - dimension - 1, dimension) == 1:
-        posibilidades.append(cell - dimension - 1)
-    if getRow(cell, dimension) - getRow(cell - dimension + 1, dimension) == 1:
-        posibilidades.append(cell - dimension + 1)
-    if getRow(cell, dimension) - getRow(cell + dimension - 1, dimension) == -1:
-        posibilidades.append(cell + dimension - 1)
-    if getRow(cell, dimension) - getRow(cell + dimension + 1, dimension) == -1:
-        posibilidades.append(cell + dimension + 1)
+    row, col = getRowCol(colores, cell)
+    cell2 = row * dimension + col
+    if getRow(cell2, dimension) - getRow(cell2 - dimension - 1, dimension) == 1:
+        posibilidades.append(cell2 - dimension - 1)
+    if getRow(cell2, dimension) - getRow(cell2 - dimension + 1, dimension) == 1:
+        posibilidades.append(cell2 - dimension + 1)
+    if getRow(cell2, dimension) - getRow(cell2 + dimension - 1, dimension) == -1:
+        posibilidades.append(cell2 + dimension - 1)
+    if getRow(cell2, dimension) - getRow(cell2 + dimension + 1, dimension) == -1:
+        posibilidades.append(cell2 + dimension + 1)
     for p in posibilidades:
         if p in solution:
             return False
